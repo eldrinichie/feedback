@@ -1,876 +1,304 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Quiz</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Control Systems Quiz — MySite</title>
+
+    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'light-bg': '#F0F8FF',
-                        'primary-navy': '#1E3A8A',
-                        'section-blue': '#3B82F6',
-                        'accent-blue': '#F472B6',
-                        'soft-blue': '#FBCFE8'
-                    }
-                }
-            }
-        }
-    </script>
+
+    <!-- Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
     <style>
-        .glass-card {
-            background: rgba(255, 255, 255, 0.25);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-        }
-        
-        .glass-button {
-            background: rgba(96, 165, 250, 0.3);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(96, 165, 250, 0.4);
-            transition: all 0.3s ease;
-            transform: translateZ(0);
-        }
-        
-        .glass-button:hover {
-            background: rgba(96, 165, 250, 0.5);
-            transform: translateY(-2px) translateZ(10px);
-            box-shadow: 0 12px 40px rgba(96, 165, 250, 0.3);
-        }
-        
-        .correct-answer {
-            background: rgba(34, 197, 94, 0.3) !important;
-            border-color: rgba(34, 197, 94, 0.6) !important;
-            animation: correctPulse 0.6s ease-in-out;
-        }
-        
-        .wrong-answer {
-            background: rgba(239, 68, 68, 0.3) !important;
-            border-color: rgba(239, 68, 68, 0.6) !important;
-            animation: wrongShake 0.6s ease-in-out;
-        }
-        
-        @keyframes correctPulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-        }
-        
-        @keyframes wrongShake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-        
-        .progress-fill {
-            transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        .fade-in {
-            animation: fadeIn 0.5s ease-in-out;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .floating {
-            animation: floating 6s ease-in-out infinite;
-        }
-        
-        @keyframes floating {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-20px) rotate(2deg); }
-        }
+        /* Use the Inter font for the document */
+        :root { --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
+        html, body { font-family: var(--font-sans); }
+
+        /* Option button visual states */
+        .quiz-option { min-height: 3rem; display: flex; align-items: center; justify-content: flex-start; padding-left: 1rem; padding-right: 1rem; }
+        .quiz-option.selected-answer { background-color: #3b82f6; color: #fff; border-color: #3b82f6; }
+        .quiz-option.correct-answer { background-color: #16a34a; color: #fff; border-color: #16a34a; }
+        .quiz-option.incorrect-answer { background-color: #ef4444; color: #fff; border-color: #ef4444; }
+
+        /* Remove focus outline for mouse but keep visible focus for keyboard */
+        .quiz-option:focus { outline: 3px solid rgba(59,130,246,0.25); outline-offset: 2px; }
+
+        /* Small helpers */
+        .visually-hidden { position: absolute !important; height: 1px; width: 1px; overflow: hidden; clip: rect(1px, 1px, 1px, 1px); white-space: nowrap; border: 0; padding: 0; margin: -1px; }
     </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-light-bg via-soft-blue to-accent-blue overflow-x-hidden">
-    <!-- Floating Background Elements -->
-    <div class="fixed inset-0 overflow-hidden pointer-events-none">
-        <div class="floating absolute top-20 left-10 w-20 h-20 bg-primary-navy opacity-10 rounded-full"></div>
-        <div class="floating absolute top-40 right-20 w-32 h-32 bg-section-blue opacity-10 rounded-full" style="animation-delay: -2s;"></div>
-        <div class="floating absolute bottom-20 left-1/4 w-16 h-16 bg-accent-blue opacity-10 rounded-full" style="animation-delay: -4s;"></div>
-    </div>
+<body class="bg-gray-100 min-h-screen">
 
-    <div class="container mx-auto px-4 py-8 relative z-10">
-        <!-- Header -->
-        <div class="text-center mb-8">
-            <h1 class="text-4xl md:text-5xl font-bold text-primary-navy mb-4 drop-shadow-lg">
-                Interactive Quiz
-            </h1>
-            <p class="text-section-blue text-lg">Test your knowledge with style!</p>
-        </div>
-
-        <!-- Progress Bar -->
-        <div class="glass-card rounded-2xl p-6 mb-8 transform hover:scale-105 transition-transform duration-300">
-            <div class="flex justify-between items-center mb-4">
-                <span class="text-primary-navy font-semibold">Progress</span>
-                <span class="text-primary-navy font-semibold" id="progress-text">0 / 0</span>
+    <header class="bg-white shadow-md">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-6">
+                <h1 class="text-3xl font-bold text-indigo-600">MySite</h1>
             </div>
-            <div class="w-full bg-white bg-opacity-30 rounded-full h-4 overflow-hidden">
-                <div class="progress-fill h-full bg-gradient-to-r from-section-blue to-accent-blue rounded-full" 
-                     id="progress-bar" style="width: 0%"></div>
-            </div>
-        </div>
 
-        <!-- Score Display -->
-        <div class="glass-card rounded-2xl p-6 mb-8 transform hover:scale-105 transition-transform duration-300">
-            <div class="text-center">
-                <h3 class="text-primary-navy font-semibold mb-2">Current Score</h3>
-                <div class="text-3xl font-bold text-section-blue" id="score-display">0</div>
-            </div>
+            <!-- Tab navigation using Tailwind utilities directly -->
+            <nav class="flex space-x-4 border-t border-gray-100" aria-label="Primary">
+                <a href="index.html" class="px-3 py-2 font-medium text-sm rounded-t-lg bg-white text-indigo-600 border-b-2 border-indigo-600">Home</a>
+                <a href="about.html" class="px-3 py-2 font-medium text-sm rounded-t-lg text-gray-500 hover:text-gray-700 hover:border-gray-300 border-b-2 border-transparent">About</a>
+                <a href="contact.html" class="px-3 py-2 font-medium text-sm rounded-t-lg text-gray-500 hover:text-gray-700 hover:border-gray-300 border-b-2 border-transparent">Contact</a>
+            </nav>
         </div>
+    </header>
 
-        <!-- Quiz Container -->
-        <div class="glass-card rounded-3xl p-8 mb-8 transform hover:scale-105 transition-transform duration-300" id="quiz-container">
-            <div id="question-container" class="fade-in">
-                <h2 class="text-2xl md:text-3xl font-bold text-primary-navy mb-8 text-center" id="question-text">
-                    Loading quiz...
-                </h2>
-                
-                <div class="space-y-4" id="options-container">
-                    <!-- Options will be generated here -->
+    <main class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div id="app" class="w-full max-w-2xl bg-white rounded-lg shadow-xl p-6 md:p-8 mx-auto">
+
+            <h1 class="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-6">Control Systems Quiz</h1>
+
+            <!-- Quiz Container -->
+            <section id="quiz-container" aria-labelledby="quiz-heading">
+                <div class="flex justify-between items-center mb-4">
+                    <div id="progress" class="text-sm font-medium text-gray-600">Question 1 / 18</div>
+                    <div id="score" class="text-sm font-medium text-gray-600">Score: 0</div>
                 </div>
-                
-                <div id="explanation-container" class="mt-8 p-6 glass-card rounded-2xl hidden">
-                    <h4 class="text-lg font-semibold text-primary-navy mb-3">Explanation:</h4>
-                    <p class="text-section-blue leading-relaxed" id="explanation-text"></p>
-                    <button onclick="nextQuestion()" 
-                            class="mt-6 glass-button px-8 py-3 rounded-xl text-primary-navy font-semibold hover:text-white transition-colors duration-300">
-                        Next Question →
-                    </button>
-                </div>
-            </div>
-        </div>
 
-        <!-- Final Results -->
-        <div id="results-container" class="glass-card rounded-3xl p-8 text-center hidden transform hover:scale-105 transition-transform duration-300">
-            <h2 class="text-3xl font-bold text-primary-navy mb-6">Quiz Complete! 🎉</h2>
-            <div class="text-6xl font-bold text-section-blue mb-4" id="final-score"></div>
-            <p class="text-xl text-primary-navy mb-8" id="final-message"></p>
-            <button onclick="restartQuiz()" 
-                    class="glass-button px-8 py-4 rounded-xl text-primary-navy font-semibold hover:text-white transition-colors duration-300 text-lg">
-                Take Quiz Again
-            </button>
+                <h2 id="question-text" class="text-xl font-semibold text-gray-900 mb-6 min-h-[5rem]">Loading question...</h2>
+
+                <!-- Options container: we use buttons with data attributes and event delegation for efficiency -->
+                <div id="options-container" class="space-y-3" role="listbox" aria-labelledby="question-text" tabindex="0"></div>
+
+                <!-- Feedback with aria-live for screen readers -->
+                <div id="feedback-message" aria-live="polite" class="mt-6 text-lg font-medium text-center hidden"></div>
+
+                <div class="mt-8 flex justify-end gap-3">
+                    <button id="submit-btn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg shadow hover:bg-blue-700 transition-colors duration-200" disabled>Submit</button>
+                    <button id="next-btn" class="bg-gray-700 text-white font-bold py-2 px-6 rounded-lg shadow hover:bg-gray-800 transition-colors duration-200 hidden">Next</button>
+                </div>
+            </section>
+
+            <!-- Results -->
+            <section id="results-container" class="hidden text-center" aria-hidden="true">
+                <h2 class="text-3xl font-bold text-gray-800 mb-4">Quiz Complete!</h2>
+                <p id="final-score" class="text-2xl text-gray-700 mb-8">Your final score is 0 / 18</p>
+                <button id="restart-btn" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-blue-700 transition-all duration-200 transform hover:scale-105">Restart Quiz</button>
+            </section>
+
         </div>
-    </div>
+    </main>
 
     <script>
-        // ===== QUIZ DATA - PASTE YOUR QUESTIONS HERE =====
-        const quizData = [
-  {
-    "question": "The combination of subsystems and processes assembled to achieve a desired output with a specified performance is known as a:",
-    "options": [
-      "Actuator",
-      "Control Element",
-      "Controlled Variable",
-      "Control System"
-    ],
-    "correct": 3,
-    "explanation": "A **Control System** is the entire arrangement of components (subsystems and processes) designed to regulate a quantity or achieve a specific output."
-  },
-  {
-    "question": "In a control system, the portion of a system that is to be controlled is called the:",
-    "options": [
-      "Process",
-      "Stimulus",
-      "Controller",
-      "Plant"
-    ],
-    "correct": 3,
-    "explanation": "The **Plant** is the object or process being controlled, such as a furnace, an aircraft, or a chemical reactor."
-  },
-  {
-    "question": "What is the actual signal or action applied to the plant by the controller to produce the desired output?",
-    "options": [
-      "Control Output",
-      "Controlled Variable",
-      "Control Action",
-      "System Response"
-    ],
-    "correct": 2,
-    "explanation": "The **Control Action** is the signal or energy output from the controller that is used to manipulate the plant."
-  },
-  {
-    "question": "A variable that is regulated in a control system, which is typically the output of the plant, is defined as the:",
-    "options": [
-      "Setpoint",
-      "Controlled Variable",
-      "Feedback Signal",
-      "Actuating Signal"
-    ],
-    "correct": 1,
-    "explanation": "The **Controlled Variable** is the output quantity (e.g., temperature, speed, position) that the system seeks to maintain or change to a desired value."
-  },
-  {
-    "question": "Any externally introduced signal that affects the controlled output, other than the control action, is referred to as a:",
-    "options": [
-      "Reference Input",
-      "Disturbance",
-      "Stimulus",
-      "Feedback"
-    ],
-    "correct": 1,
-    "explanation": "A **Disturbance** is an unwanted input that tends to negatively affect the controlled output."
-  },
-  {
-    "question": "What is the signal or energy that drives the control system to produce the response?",
-    "options": [
-      "Stimulus",
-      "Transducer",
-      "Actuator",
-      "Regulator"
-    ],
-    "correct": 0,
-    "explanation": "The **Stimulus** is the external force or signal (input) that drives the control system to react and produce a response."
-  },
-  {
-    "question": "Which term describes the final result or measure of performance from a control system?",
-    "options": [
-      "Input Command",
-      "Error Signal",
-      "Response",
-      "Actuating Signal"
-    ],
-    "correct": 2,
-    "explanation": "The **Response** is the controlled variable's actual behavior as a result of the system's stimulus (input) and disturbances."
-  },
-  {
-    "question": "The component that compares the reference input to the controlled output to generate the actuating signal is the:",
-    "options": [
-      "Plant",
-      "Sensor",
-      "Error Detector",
-      "Controller"
-    ],
-    "correct": 2,
-    "explanation": "The **Error Detector** (or summing point) is responsible for algebraically comparing the reference input and the feedback signal."
-  },
-  {
-    "question": "What is the output of the error detector, which drives the control element?",
-    "options": [
-      "Feedback Signal",
-      "Input Command",
-      "Actuating Signal",
-      "Controlled Output"
-    ],
-    "correct": 2,
-    "explanation": "The **Actuating Signal** (or error signal) is the difference between the input and the feedback, and it serves as the input to the controller."
-  },
-  {
-    "question": "Which device converts the control signal (often electrical) into a physical action (like force, motion, or heat) that directly influences the plant?",
-    "options": [
-      "Transducer",
-      "Controller",
-      "Actuator",
-      "Power Amplifier"
-    ],
-    "correct": 2,
-    "explanation": "The **Actuator** (e.g., motor, valve) provides the necessary power and physical output to manipulate the controlled variable."
-  },
-  {
-    "question": "The element in the feedback path that measures the controlled variable and converts it into a form that can be compared with the reference input is the:",
-    "options": [
-      "Controller",
-      "Actuator",
-      "Transducer (or Sensor)",
-      "Summing Point"
-    ],
-    "correct": 2,
-    "explanation": "The **Transducer/Sensor** measures the physical output and converts it into a proportional electrical or mechanical signal for the summing point."
-  },
-  {
-    "question": "The term *element* in a control system is used interchangeably with which of the following terms?",
-    "options": [
-      "Components",
-      "Disturbances",
-      "Response",
-      "Servomechanisms"
-    ],
-    "correct": 0,
-    "explanation": "System **Components** and system **elements** are used synonymously to refer to the individual parts of a control system."
-  },
-  {
-    "question": "A control system where the control action is entirely independent of the output is classified as a(n):",
-    "options": [
-      "Servomechanism",
-      "Open-loop system",
-      "Regulator",
-      "Closed-loop system"
-    ],
-    "correct": 1,
-    "explanation": "An **Open-loop system** is one in which the output has no effect on the control action."
-  },
-  {
-    "question": "Which feature is characteristic of a closed-loop control system but not an open-loop system?",
-    "options": [
-      "Simpler construction",
-      "Output is dependent on input",
-      "High gain",
-      "Feedback path"
-    ],
-    "correct": 3,
-    "explanation": "The presence of a **Feedback path** that returns the measured output to the input is the defining characteristic of a closed-loop system."
-  },
-  {
-    "question": "One major disadvantage of an open-loop system is its inability to compensate for which factor?",
-    "options": [
-      "Reference input changes",
-      "System complexity",
-      "External disturbances",
-      "Low initial cost"
-    ],
-    "correct": 2,
-    "explanation": "Open-loop systems cannot self-correct, meaning they are unable to compensate for **External disturbances**."
-  },
-  {
-    "question": "An automatic toaster, where the toast time is set manually regardless of the bread's color, is an example of what type of system?",
-    "options": [
-      "Closed-loop system",
-      "Servomechanism",
-      "Open-loop system",
-      "Regulator system"
-    ],
-    "correct": 2,
-    "explanation": "This is an **Open-loop system** because the timer (control action) is set independently of the toast's color (output)."
-  },
-  {
-    "question": "Compared to open-loop systems, a key benefit of a negative feedback closed-loop system is:",
-    "options": [
-      "Reduced sensitivity to parameter variations",
-      "Increased overall gain of the system",
-      "Eliminating the need for a control element",
-      "Simpler, less expensive construction"
-    ],
-    "correct": 0,
-    "explanation": "Negative feedback makes the system's performance less sensitive to changes in the parameters of the plant or its components."
-  },
-  {
-    "question": "What is the primary characteristic that distinguishes a closed-loop system from an open-loop system?",
-    "options": [
-      "Its use of a controller",
-      "Its use of an amplifier",
-      "Its use of output measurement",
-      "Its independence from external disturbances"
-    ],
-    "correct": 2,
-    "explanation": "A closed-loop system requires **Output measurement** (via a sensor/transducer) to compare it with the desired input."
-  },
-  {
-    "question": "A closed-loop system that acts to maintain a physical variable, such as temperature or pressure, at a constant value is commonly called a(n):",
-    "options": [
-      "Regulator",
-      "Servomechanism",
-      "Stochastic System",
-      "Process Control System"
-    ],
-    "correct": 0,
-    "explanation": "A **Regulator** is a control system whose primary task is to maintain the controlled variable at a constant value despite disturbances."
-  },
-  {
-    "question": "A closed-loop system designed to make the output follow the input, specifically when the output is a mechanical position or velocity, is most accurately termed a:",
-    "options": [
-      "Regulator",
-      "Servomechanism",
-      "PID Controller",
-      "Transducer"
-    ],
-    "correct": 1,
-    "explanation": "A **Servomechanism** is a feedback control system where the controlled variable is a mechanical position, velocity, or acceleration."
-  },
-  {
-    "question": "In a negative feedback control system, the feedback signal is subtracted from the reference input at the summing point to generate the:",
-    "options": [
-      "Controlled Output",
-      "Error Signal",
-      "Disturbance",
-      "Actuator Command"
-    ],
-    "correct": 1,
-    "explanation": "The difference between the input and the feedback is the **Error Signal** or Actuating Signal, which the controller uses to determine the control action."
-  },
-  {
-    "question": "Which of the following is *not* typically an advantage of a negative feedback control system?",
-    "options": [
-      "Improved transient response",
-      "Reduction in system gain",
-      "Decreased system sensitivity",
-      "Increased accuracy"
-    ],
-    "correct": 1,
-    "explanation": "While negative feedback has many advantages, a side effect is generally a **Reduction in system gain** compared to the open-loop system."
-  },
-  {
-    "question": "The control system of a residential air conditioning unit that uses a thermostat to maintain room temperature is an example of a:",
-    "options": [
-      "Servomechanism",
-      "Open-loop system",
-      "Regulator",
-      "Feed-forward system"
-    ],
-    "correct": 2,
-    "explanation": "Since the goal is to maintain a constant room temperature, the system functions as a **Regulator**."
-  },
-  {
-    "question": "The feedback path in a closed-loop system primarily serves to:",
-    "options": [
-      "Compensate for the system's time delay",
-      "Send a measured version of the output back to the input",
-      "Amplify the input signal",
-      "Increase the system's sensitivity to parameter changes"
-    ],
-    "correct": 1,
-    "explanation": "The primary role is to provide the **measured output** to the summing point for comparison with the reference input."
-  },
-  {
-    "question": "When the feedback signal has the same polarity as the input signal, the system is said to have:",
-    "options": [
-      "Negative Feedback",
-      "Unity Feedback",
-      "Positive Feedback",
-      "Zero-Order Hold"
-    ],
-    "correct": 2,
-    "explanation": "If the signals are added algebraically, they create **Positive Feedback**, which tends to increase the overall gain."
-  },
-  {
-    "question": "Positive feedback generally has which effect on the overall system gain and stability?",
-    "options": [
-      "Decreases gain, increases stability",
-      "Increases gain, decreases stability",
-      "Decreases both gain and stability",
-      "Increases both gain and stability"
-    ],
-    "correct": 1,
-    "explanation": "Positive feedback leads to a **higher overall gain** but generally makes the system **less stable** (more likely to oscillate)."
-  },
-  {
-    "question": "An ideal feedback control system should have a sensitivity function that approaches which value?",
-    "options": [
-      "Infinity",
-      "Unity (1)",
-      "Zero (0)",
-      "Negative value"
-    ],
-    "correct": 2,
-    "explanation": "Low sensitivity to changes in plant parameters is desired; therefore, the sensitivity function should approach **Zero**."
-  },
-  {
-    "question": "What does a rectangular block in a block diagram visually represent?",
-    "options": [
-      "A comparison of signals",
-      "The system response",
-      "The functional relationship of a system component",
-      "A point where a signal branches"
-    ],
-    "correct": 2,
-    "explanation": "A block represents the **functional relationship** or the mathematical operation (e.g., the transfer function) performed on its input to produce its output."
-  },
-  {
-    "question": "The small circle with plus and/or minus signs inside, where signals are algebraically added or subtracted, is called a:",
-    "options": [
-      "Block",
-      "Takeoff Point",
-      "Summing Point",
-      "Signal Flow Junction"
-    ],
-    "correct": 2,
-    "explanation": "The **Summing Point** is the symbol used for combining multiple input signals into a single output signal via addition or subtraction."
-  },
-  {
-    "question": "The point in a block diagram where a single input signal is distributed unchanged to two or more paths is called a:",
-    "options": [
-      "Takeoff Point",
-      "Summing Junction",
-      "Branch",
-      "Reference Input"
-    ],
-    "correct": 0,
-    "explanation": "A **Takeoff Point** is where a signal splits into multiple paths without altering the value of the signal."
-  },
-  {
-    "question": "The transfer function of two blocks connected in *series* is calculated by:",
-    "options": [
-      "The difference of their individual transfer functions",
-      "The product of their individual transfer functions",
-      "The sum of their individual transfer functions",
-      "The division of the output block by the input block"
-    ],
-    "correct": 1,
-    "explanation": "The overall transfer function for blocks in series (cascade) is the **product** of their individual transfer functions."
-  },
-  {
-    "question": "For two blocks connected in *parallel*, the overall transfer function is calculated by:",
-    "options": [
-      "The product of their individual transfer functions",
-      "The division of their individual transfer functions",
-      "The sum or difference of their individual transfer functions",
-      "The algebraic sum divided by the product of the individual transfer functions"
-    ],
-    "correct": 2,
-    "explanation": "The overall transfer function for blocks in parallel is the **algebraic sum or difference** of their individual transfer functions, depending on the signs."
-  },
-  {
-    "question": "Which controller component is designed to reduce or eliminate the *steady-state error* by continuously integrating the error over time?",
-    "options": [
-      "Proportional (P)",
-      "Derivative (D)",
-      "Integral (I)",
-      "Proportional-Derivative (PD)"
-    ],
-    "correct": 2,
-    "explanation": "The **Integral (I)** action accumulates the error over time, forcing the error to zero, thus eliminating steady-state error (offset)."
-  },
-  {
-    "question": "The primary function of the Derivative (D) control action in a PID controller is to:",
-    "options": [
-      "Reduce the final steady-state error",
-      "Increase the system's overall gain",
-      "Respond to the *rate of change* of the error",
-      "Compensate for load changes"
-    ],
-    "correct": 2,
-    "explanation": "Derivative control responds to how fast the error is changing, providing an anticipatory effect that increases damping and improves transient response."
-  },
-  {
-    "question": "Which control action provides an output that is directly proportional to the instantaneous error signal?",
-    "options": [
-      "Integral (I) control",
-      "Proportional (P) control",
-      "Derivative (D) control",
-      "Reset control"
-    ],
-    "correct": 1,
-    "explanation": "This is the definition of **Proportional (P) control**, where the control action is simply $K_p \cdot e(t)$."
-  },
-  {
-    "question": "Adding a Proportional-Derivative (PD) controller primarily results in an improvement to the system's:",
-    "options": [
-      "Steady-state error",
-      "Noise immunity",
-      "Transient response",
-      "Overall DC gain"
-    ],
-    "correct": 2,
-    "explanation": "PD control provides damping and anticipation, which significantly improves the system's **Transient response** (faster settling time and reduced overshoot)."
-  },
-  {
-    "question": "The controller type that uses all three basic control actions—Proportional, Integral, and Derivative—is known by the acronym:",
-    "options": [
-      "PI-D",
-      "PID",
-      "D-PI",
-      "ISP"
-    ],
-    "correct": 1,
-    "explanation": "**PID** stands for Proportional-Integral-Derivative, combining the benefits of all three actions."
-  },
-  {
-    "question": "When a Proportional (P) controller is used, the steady-state error is often:",
-    "options": [
-      "Completely eliminated",
-      "Made to oscillate",
-      "Reduced by a factor proportional to the gain (Kp)",
-      "Completely unaffected"
-    ],
-    "correct": 2,
-    "explanation": "While P-control reduces the error, it typically leaves a residual non-zero error, or **offset**, which is reduced proportionally to the gain."
-  },
-  {
-    "question": "A simple delay in the transmission of a signal through a system path is referred to as:",
-    "options": [
-      "Time Constant",
-      "Dead Time (or Transport Lag)",
-      "Sampling Period",
-      "Overshoot"
-    ],
-    "correct": 1,
-    "explanation": "**Dead Time** or **Transport Lag** is a pure time delay between an input and the start of the resulting response."
-  },
-  {
-    "question": "An increase in the proportional gain ($K_p$) of a simple proportional controller generally has which effect?",
-    "options": [
-      "Increases the steady-state error",
-      "Decreases the system's stability",
-      "Decreases the rise time (faster response)",
-      "Eliminates the need for a feedback element"
-    ],
-    "correct": 2,
-    "explanation": "A higher gain leads to a stronger control action for the same error, making the system respond faster, thus **Decreasing the rise time**."
-  },
-  {
-    "question": "The Derivative control action is often used with a Proportional controller to improve stability, but it has the disadvantage of amplifying:",
-    "options": [
-      "Steady-state error",
-      "Input noise",
-      "Offset",
-      "Overshoot"
-    ],
-    "correct": 1,
-    "explanation": "Since derivative action responds to the rate of change, it strongly amplifies high-frequency signals, which are typically **Input noise**."
-  },
-  {
-    "question": "Which control component is sometimes called an 'automatic reset controller' due to its ability to automatically eliminate offset error?",
-    "options": [
-      "Proportional (P)",
-      "Derivative (D)",
-      "Integral (I)",
-      "Proportional-Derivative (PD)"
-    ],
-    "correct": 2,
-    "explanation": "The **Integral (I)** action is also called 'reset' action because it constantly resets the control variable until the error is zero."
-  },
-  {
-    "question": "The device that converts a continuous-time analog signal into a discrete sequence of digital values is the:",
-    "options": [
-      "Zero-Order Hold (ZOH)",
-      "Digital-to-Analog Converter (D/A)",
-      "Sampler",
-      "Analog-to-Digital Converter (A/D)"
-    ],
-    "correct": 3,
-    "explanation": "The **Analog-to-Digital Converter (A/D)** is essential for getting continuous measurements into the digital computer/controller."
-  },
-  {
-    "question": "What component in a computer-controlled system is responsible for converting the discrete digital control signal back into a continuous-time analog signal for the plant?",
-    "options": [
-      "Sampler",
-      "Analog-to-Digital Converter (A/D)",
-      "Digital-to-Analog Converter (D/A)",
-      "Controller"
-    ],
-    "correct": 2,
-    "explanation": "The **Digital-to-Analog Converter (D/A)** performs the inverse operation of the A/D, translating the digital control output to a voltage or current."
-  },
-  {
-    "question": "In the context of computer-controlled systems, an ideal sampler is schematically represented by what element?",
-    "options": [
-      "A block with a transfer function",
-      "A switch that is momentarily closed at discrete instants",
-      "A summer with a negative sign",
-      "A passive resistor-capacitor circuit"
-    ],
-    "correct": 1,
-    "explanation": "An ideal sampler is conceptually a **switch** that is only closed at the sampling instants $t=kT$, converting a continuous signal to a train of impulses."
-  },
-  {
-    "question": "Which device is commonly placed after a D/A converter to reconstruct a continuous signal by holding the sampled value constant for the entire sampling period, $T$?",
-    "options": [
-      "Ideal Sampler",
-      "First-Order Hold (FOH)",
-      "Zero-Order Hold (ZOH)",
-      "Power Amplifier"
-    ],
-    "correct": 2,
-    "explanation": "The **Zero-Order Hold (ZOH)** maintains the value of the most recent sample until the next sample is available."
-  },
-  {
-    "question": "According to the Nyquist-Shannon Sampling Theorem, to perfectly reconstruct a continuous signal from its samples, the sampling frequency ($f_s$) must be at least:",
-    "options": [
-      "Equal to the signal's maximum frequency",
-      "Twice the signal's maximum frequency",
-      "Half the signal's maximum frequency",
-      "Ten times the signal's maximum frequency"
-    ],
-    "correct": 1,
-    "explanation": "The Nyquist rate requires the sampling frequency ($f_s$) to be at least **twice the maximum frequency** ($f_{max}$) of the signal being sampled: $f_s \geq 2f_{max}$."
-  },
-  {
-    "question": "What is the undesirable phenomenon that occurs when the sampling rate is too low, causing high-frequency signal components to appear as lower-frequency components?",
-    "options": [
-      "Quantization",
-      "Filtering",
-      "Aliasing",
-      "Hold-effect"
-    ],
-    "correct": 2,
-    "explanation": "**Aliasing** occurs when the sampling rate is below the Nyquist rate, causing the high-frequency components to be 'folded' into the baseband."
-  },
-  {
-    "question": "The error introduced by representing the continuous range of a sampled signal with a finite number of discrete digital levels is known as:",
-    "options": [
-      "Sampling Error",
-      "Truncation Error",
-      "Quantization Error",
-      "Discretization Error"
-    ],
-    "correct": 2,
-    "explanation": "When an analog signal is converted to digital, the finite precision of the digital representation introduces a **Quantization Error**."
-  },
-  {
-    "question": "In a typical digital control loop, the discrete controller's output, $u(k)$, is sent to the D/A and ZOH before reaching which component?",
-    "options": [
-      "The Actuator",
-      "The Sensor",
-      "The Reference Input",
-      "The Sampler"
-    ],
-    "correct": 0,
-    "explanation": "The D/A and ZOH convert the digital control signal into the continuous analog control action, which then drives **The Actuator** to manipulate the plant."
-  }
-];
-        // ===== END QUIZ DATA =====
+        // -------------------------
+        // Data & State
+        // -------------------------
+        const questions = [
+            { question: "The limitation of linearization in system design is that it:", options: ["Ignores high-frequency dynamics entirely.", "Removes feedback path dependency.", "Works for both large and small inputs.", "Is valid only near the chosen operating point."], correctAnswer: "Is valid only near the chosen operating point." },
+            { question: "Nonlinear effects become dominant when:", options: ["System gain is unity.", "Time constant is small.", "Deviations are large.", "Damping ratio is zero."], correctAnswer: "Deviations are large." },
+            { question: "In control systems, an equilibrium point is where:", options: ["The gain is maximum.", "The input changes continuously.", "All derivatives of state variables are zero.", "The output oscillates around zero."], correctAnswer: "All derivatives of state variables are zero." },
+            { question: "The impulse response of an LTI system completely characterizes its:", options: ["Dynamic and steady-state behavior", "Time-varying behavior", "Initial conditions", "Nonlinear properties"], correctAnswer: "Dynamic and steady-state behavior" },
+            { question: "The process of small-signal analysis assumes that:", options: ["Inputs vary largely from the equilibrium.", "Deviations around equilibrium are small.", "System poles move away from the origin.", "Gains increase with time."], correctAnswer: "Deviations around equilibrium are small." },
+            { question: "Moving a pole closer to the imaginary axis causes:", options: ["Faster response and more damping.", "Slower response and less oscillation.", "Slower response and more oscillation.", "Faster response and less damping."], correctAnswer: "Slower response and more oscillation." },
+            { question: "In physical systems, linearization is often done about:", options: ["Steady-state operating points.", "Points of maximum oscillation.", "Randomly chosen input levels.", "Zero-input conditions only."], correctAnswer: "Steady-state operating points." },
+            { question: "The location of poles in the s-plane determines the system's:", options: ["Hardware implementation.", "Sampling frequency.", "Time-domain response characteristics.", "Type of input signal."], correctAnswer: "Time-domain response characteristics." },
+            { question: "A pole at (s = -10) compared to (s = -2) represents:", options: ["A faster response.", "Equal transient speed.", "A slower response.", "Pure oscillation."], correctAnswer: "A faster response." },
+            { question: "A pole located exactly at the origin indicates:", options: ["The system response oscillates infinitely.", "The system is unstable.", "The system has a steady-state error to step input.", "The system behaves as an integrator."], correctAnswer: "The system behaves as an integrator." },
+            { question: "The order of an LTI system equals:", options: ["The number of zeros", "The highest power of (s) in the numerator", "The sum of poles and zeros", "The highest power of (s) in the denominator"], correctAnswer: "The highest power of (s) in the denominator" },
+            { question: "The slope of the tangent at the operating point in a nonlinear function represents:", options: ["The nonlinear gain", "The system pole", "The small-signal gain", "The steady-state error"], correctAnswer: "The small-signal gain" },
+            { question: "The transfer function (G(s)) of an LTI system represents:", options: ["The integral of the impulse response", "The ratio of energy input to power output", "The system's time-domain response directly", "The ratio of Laplace-transformed output to input under zero initial conditions"], correctAnswer: "The ratio of Laplace-transformed output to input under zero initial conditions" },
+            { question: "Linearization in control systems is used primarily to:", options: ["Approximate a nonlinear system near an equilibrium point.", "Design systems without using transfer functions.", "Eliminate nonlinearities from a system completely.", "Convert discrete systems into continuous-time models."], correctAnswer: "Approximate a nonlinear system near an equilibrium point." },
+            { question: "A causal LTI system must have an impulse response that is:", options: ["Constant for all time", "Nonzero only for (t < 0)", "Zero for (t < 0)", "Symmetric about (t = 0)"], correctAnswer: "Zero for (t < 0)" },
+            { question: "The pole-zero map graphically represents:", options: ["Only imaginary parts of zeros.", "Only the real parts of poles.", "Roots of numerator and denominator in the frequency domain.", "Gain versus frequency plot."], correctAnswer: "Roots of numerator and denominator in the frequency domain." },
+            { question: "A real pole in the left-half plane represents a:", options: ["Pure oscillation with zero damping.", "Constant output with no dynamics.", "Stable exponential decay.", "Unstable exponential growth."], correctAnswer: "Stable exponential decay." },
+            { question: "The Laplace transform is used in LTI systems to:", options: ["Remove the need for modeling", "Analyze only steady-state response", "Eliminate nonlinear effects", "Transform differential equations into algebraic equations"], correctAnswer: "Transform differential equations into algebraic equations" }
+        ];
 
-        // 1. Utility function for Fisher-Yates Shuffle
-function shuffleArray(array) {
-    for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
-    }
-}
+        // Derive correct index for each question once (avoid string comparison later)
+        questions.forEach(q => { q.correctIndex = q.options.indexOf(q.correctAnswer); });
 
-let shuffledQuizData = []; // New variable to hold the shuffled questions
-let currentQuestion = 0;
-let score = 0;
-let answered = false;
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let selectedIndex = null;
+        let feedbackGiven = false;
 
-function initializeQuiz() {
-    // ⭐️ STEP 1: SHUFFLE THE QUESTIONS
-    // Create a copy of the original quizData and shuffle it
-    // The original quizData must be available globally (e.g., loaded from the JSON provided)
-    shuffledQuizData = [...quizData]; // Use spread operator to create a shallow copy
-    shuffleArray(shuffledQuizData);
-    
-    currentQuestion = 0;
-    score = 0;
-    answered = false;
-    updateProgress();
-    updateScore();
-    showQuestion();
-    document.getElementById('results-container').classList.add('hidden');
-    document.getElementById('quiz-container').classList.remove('hidden');
-}
+        // -------------------------
+        // Cached DOM nodes
+        // -------------------------
+        const progressEl = document.getElementById('progress');
+        const scoreEl = document.getElementById('score');
+        const questionTextEl = document.getElementById('question-text');
+        const optionsContainerEl = document.getElementById('options-container');
+        const feedbackMessageEl = document.getElementById('feedback-message');
+        const submitBtn = document.getElementById('submit-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const quizContainer = document.getElementById('quiz-container');
+        const resultsContainer = document.getElementById('results-container');
+        const finalScoreEl = document.getElementById('final-score');
+        const restartBtn = document.getElementById('restart-btn');
 
-function showQuestion() {
-    // Use the shuffled array length for checks
-    if (currentQuestion >= shuffledQuizData.length) {
-        showResults();
-        return;
-    }
-
-    answered = false;
-    // Get the current question from the shuffled array
-    const originalQuestion = shuffledQuizData[currentQuestion];
-
-    // ⭐️ STEP 2: SHUFFLE THE OPTIONS
-    // Create an array of options with their original index
-    const optionsWithIndex = originalQuestion.options.map((option, index) => ({
-        text: option,
-        originalIndex: index
-    }));
-
-    // Shuffle the options array
-    shuffleArray(optionsWithIndex);
-
-    document.getElementById('question-text').textContent = originalQuestion.question;
-    document.getElementById('explanation-container').classList.add('hidden');
-
-    const optionsContainer = document.getElementById('options-container');
-    optionsContainer.innerHTML = '';
-
-    optionsWithIndex.forEach((optionData, shuffledIndex) => {
-        const button = document.createElement('button');
-        button.className = 'glass-button w-full p-4 rounded-xl text-left text-primary-navy font-medium hover:text-white transition-all duration-300 transform hover:scale-105';
-        button.textContent = `${String.fromCharCode(65 + shuffledIndex)}. ${optionData.text}`;
-        
-        // When an option is clicked, pass its *original* index for correctness check
-        button.onclick = () => selectAnswer(optionData.originalIndex, optionsWithIndex); 
-        optionsContainer.appendChild(button);
-    });
-}
-
-// The selectAnswer function now needs to handle the mapping back to the correct button
-function selectAnswer(originalSelectedIndex, optionsMap) {
-    if (answered) return;
-
-    answered = true;
-    const question = shuffledQuizData[currentQuestion];
-    const buttons = document.querySelectorAll('#options-container button');
-
-    buttons.forEach((button, shuffledIndex) => {
-        button.style.pointerEvents = 'none';
-        
-        // Find the original index of the option associated with this button
-        const optionOriginalIndex = optionsMap[shuffledIndex].originalIndex;
-
-        if (optionOriginalIndex === question.correct) {
-            // This button corresponds to the correct answer
-            button.classList.add('correct-answer');
-        } else if (optionOriginalIndex === originalSelectedIndex) {
-            // This button was the one selected by the user (and it's wrong)
-            button.classList.add('wrong-answer');
+        // -------------------------
+        // Utility & rendering
+        // -------------------------
+        function resetFeedbackUI() {
+            feedbackMessageEl.classList.add('hidden');
+            feedbackMessageEl.textContent = '';
+            feedbackMessageEl.classList.remove('text-green-600', 'text-red-600');
         }
-    });
 
-    if (originalSelectedIndex === question.correct) {
-        score++;
-        updateScore();
-    }
+        function renderQuestion() {
+            if (currentQuestionIndex >= questions.length) {
+                showResults();
+                return;
+            }
 
-    setTimeout(() => {
-        document.getElementById('explanation-text').textContent = question.explanation;
-        document.getElementById('explanation-container').classList.remove('hidden');
-    }, 1000);
-}
+            feedbackGiven = false;
+            selectedIndex = null;
+            resetFeedbackUI();
+            submitBtn.disabled = true;
+            submitBtn.classList.remove('hidden');
+            nextBtn.classList.add('hidden');
 
-function nextQuestion() {
-    currentQuestion++;
-    // Use the shuffled array length for progress tracking
-    updateProgress();
+            const q = questions[currentQuestionIndex];
 
-    if (currentQuestion >= shuffledQuizData.length) {
-        showResults();
-    } else {
-        showQuestion();
-    }
-}
+            questionTextEl.textContent = q.question;
+            progressEl.textContent = `Question ${currentQuestionIndex + 1} / ${questions.length}`;
+            scoreEl.textContent = `Score: ${score}`;
 
-function updateProgress() {
-    // Use the shuffled array length for calculations
-    const progress = (currentQuestion / shuffledQuizData.length) * 100; 
-    document.getElementById('progress-bar').style.width = `${progress}%`;
-    document.getElementById('progress-text').textContent = `${currentQuestion} / ${shuffledQuizData.length}`;
-}
+            // Build options with a document fragment for performance
+            optionsContainerEl.innerHTML = '';
+            const frag = document.createDocumentFragment();
 
-function updateScore() {
-    document.getElementById('score-display').textContent = score;
-}
+            q.options.forEach((optText, idx) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.setAttribute('data-option-index', idx);
+                btn.setAttribute('data-option-text', optText);
+                btn.setAttribute('role', 'option');
+                btn.className = 'quiz-option w-full p-3 rounded-lg border-2 border-gray-300 bg-white text-gray-700 font-medium hover:bg-gray-50 transition-colors duration-200 text-left';
+                btn.tabIndex = 0;
+                btn.textContent = optText;
+                frag.appendChild(btn);
+            });
 
-function showResults() {
-    document.getElementById('quiz-container').classList.add('hidden');
-    document.getElementById('results-container').classList.remove('hidden');
+            optionsContainerEl.appendChild(frag);
 
-    // Use the shuffled array length for calculations
-    const percentage = Math.round((score / shuffledQuizData.length) * 100); 
-    document.getElementById('final-score').textContent = `${score}/${shuffledQuizData.length} (${percentage}%)`;
+            // Set focus to options container for keyboard users
+            optionsContainerEl.focus();
+        }
 
-    let message = '';
-    if (percentage >= 90) {
-        message = 'Outstanding! You\'re a quiz master! 🏆';
-    } else if (percentage >= 70) {
-        message = 'Great job! You did really well! 🌟';
-    } else if (percentage >= 50) {
-        message = 'Good effort! Keep learning! 📚';
-    } else {
-        message = 'Don\'t give up! Practice makes perfect! 💪';
-    }
+        // Event delegation: select option on click
+        optionsContainerEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-option-index]');
+            if (!btn || feedbackGiven) return;
+            selectOption(parseInt(btn.getAttribute('data-option-index'), 10), btn);
+        });
 
-    document.getElementById('final-message').textContent = message;
-}
+        // Keyboard support: Enter/Space to select, Arrow keys to navigate
+        optionsContainerEl.addEventListener('keydown', (e) => {
+            const key = e.key;
+            const focused = document.activeElement;
+            // If the focused element is an option button, handle Enter/Space to select it
+            if (focused && focused.matches('button[data-option-index]') && !feedbackGiven) {
+                if (key === 'Enter' || key === ' ') {
+                    e.preventDefault();
+                    const idx = parseInt(focused.getAttribute('data-option-index'), 10);
+                    selectOption(idx, focused);
+                    return;
+                }
+            }
 
-function restartQuiz() {
-    // Reload the page to guarantee a fresh shuffle of questions and options
-    window.location.reload(); 
-    // OR call initializeQuiz() for an in-memory shuffle without a full reload
-    // initializeQuiz(); 
-}
+            // Allow ArrowUp/ArrowDown to move focus between options
+            if (key === 'ArrowDown' || key === 'ArrowUp') {
+                e.preventDefault();
+                const all = Array.from(optionsContainerEl.querySelectorAll('button[data-option-index]'));
+                if (!all.length) return;
+                let i = all.indexOf(document.activeElement);
+                if (i === -1) {
+                    // focus first or last depending on arrow
+                    const target = (key === 'ArrowDown') ? all[0] : all[all.length - 1];
+                    target.focus();
+                } else {
+                    i = (key === 'ArrowDown') ? Math.min(all.length - 1, i + 1) : Math.max(0, i - 1);
+                    all[i].focus();
+                }
+            }
+        });
 
-// Initialize quiz when page loads
-window.onload = initializeQuiz;
+        function selectOption(idx, btnEl) {
+            // Clear previous selection
+            optionsContainerEl.querySelectorAll('button').forEach(b => {
+                b.classList.remove('selected-answer');
+                b.setAttribute('aria-selected', 'false');
+            });
+
+            btnEl.classList.add('selected-answer');
+            btnEl.setAttribute('aria-selected', 'true');
+
+            selectedIndex = idx;
+            submitBtn.disabled = false;
+            submitBtn.focus();
+        }
+
+        // Submit handler
+        submitBtn.addEventListener('click', () => {
+            if (selectedIndex === null || feedbackGiven) return;
+            feedbackGiven = true;
+
+            const q = questions[currentQuestionIndex];
+            const isCorrect = (selectedIndex === q.correctIndex);
+
+            // Update score and feedback
+            if (isCorrect) {
+                score++;
+                feedbackMessageEl.textContent = 'Correct!';
+                feedbackMessageEl.classList.add('text-green-600');
+            } else {
+                feedbackMessageEl.textContent = `Incorrect. The correct answer is: ${q.options[q.correctIndex]}`;
+                feedbackMessageEl.classList.add('text-red-600');
+            }
+            feedbackMessageEl.classList.remove('hidden');
+
+            // Visual marking and disable options
+            optionsContainerEl.querySelectorAll('button').forEach((b) => {
+                const idx = parseInt(b.getAttribute('data-option-index'), 10);
+                b.disabled = true;
+                b.classList.remove('selected-answer', 'hover:bg-gray-50');
+                if (idx === q.correctIndex) b.classList.add('correct-answer');
+                else if (idx === selectedIndex && !isCorrect) b.classList.add('incorrect-answer');
+            });
+
+            scoreEl.textContent = `Score: ${score}`;
+
+            // Swap buttons
+            submitBtn.classList.add('hidden');
+            nextBtn.classList.remove('hidden');
+            nextBtn.focus();
+        });
+
+        // Next question
+        nextBtn.addEventListener('click', () => {
+            currentQuestionIndex++;
+            renderQuestion();
+        });
+
+        // Restart
+        restartBtn.addEventListener('click', () => {
+            currentQuestionIndex = 0;
+            score = 0;
+            resultsContainer.classList.add('hidden');
+            resultsContainer.setAttribute('aria-hidden', 'true');
+            quizContainer.classList.remove('hidden');
+            quizContainer.setAttribute('aria-hidden', 'false');
+            renderQuestion();
+        });
+
+        function showResults() {
+            quizContainer.classList.add('hidden');
+            quizContainer.setAttribute('aria-hidden', 'true');
+            resultsContainer.classList.remove('hidden');
+            resultsContainer.setAttribute('aria-hidden', 'false');
+            finalScoreEl.textContent = `Your final score is ${score} / ${questions.length}`;
+            finalScoreEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        // Initial render
+        renderQuestion();
     </script>
 </body>
 </html>
